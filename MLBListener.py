@@ -7,6 +7,7 @@ import os
 teamName = input("Enter the team you would like to listen to: ")
 
 TeamData = sa.lookup_team(teamName)
+
 teamID = TeamData[0]['id']
 
 printed = False
@@ -20,7 +21,6 @@ while 1:
 	inprog = False
 
 	game = schedule[0]
-
 	if game['status'] == 'In Progress':
 		inprog = True
 		printed = False
@@ -35,12 +35,12 @@ while 1:
 		while game['status'] == 'In Progress':
 			newScoring = sa.game_scoring_plays(game['game_id']).split("\n\n")
 			if len(oldScoring) != len(newScoring):
-				oldScoring = newScoring
-				if ("homers" in newScoring[-1]):
+				if ("homers" in newScoring[-1] and game['current_inning'] == newScoring[-1].split(" ")[1] and game['inning_state'] == newScoring[-1].split(" ")[0]):
 					playerName = newScoring[-1].split(" homers")[0]
 					if (playerName in sa.roster(teamID)):
 						print(newScoring[-1])
 						ps('SEE YA.mp3')
+			oldScoring = newScoring
 			game = sa.schedule(datetime.date.today(), team = teamID)[0]
 	
 	if not inprog and not printed:

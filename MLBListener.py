@@ -19,10 +19,15 @@ while 1:
 	
 	oldScoring = []
 	inprog = False
+	scheddy = False
+	final = False
 
 	game = schedule[0]
+	#gonna have to make this an FSM Prolly
 	if game['status'] == 'In Progress':
 		inprog = True
+		scheddy = False
+		final = False
 		printed = False
 		homeTeamStr = game['home_name']
 		awayTeamStr = game['away_name']
@@ -35,19 +40,32 @@ while 1:
 		while game['status'] == 'In Progress':
 			newScoring = sa.game_scoring_plays(game['game_id']).split("\n\n")
 			if len(oldScoring) != len(newScoring):
-				if ("homers" in newScoring[-1] and game['current_inning'] == newScoring[-1].split(" ")[1] and game['inning_state'] == newScoring[-1].split(" ")[0]):
+				if ("homers" in newScoring[-1]):
 					playerName = newScoring[-1].split(" homers")[0]
 					if (playerName in sa.roster(teamID)):
 						print(newScoring[-1])
 						ps('SEE YA.mp3')
 			oldScoring = newScoring
 			game = sa.schedule(datetime.date.today(), team = teamID)[0]
-	
-	if not inprog and not printed:
-		print("The " + teamName + " are not playing a game right now")
-		printed = True
-	elif not printed:
-		if (teamName in game['winning_team']):
-			print("Game Over! The " + teamName + " win!")
+	elif game['status'] == 'Scheduled' or game['status'] == 'Pre-Game' or game['status'] == 'Warmup':
+		scheddy = True
+		inprog = False
+		final = False
+	elif game['status'] == 'Final':
+		final = True
+		scheddy = False
+		inprog = False
+	if not printed:
+		if scheddy:
+			if teamName in game['home_name']:
+				print("The " + game['home_name'] + " are scheduled to play versus the " + game['away_name'] + " today")
+			if teamName in game['away_name']:
+				print("The " + game['away_name'] + " are schedule to play at the " + game['home_name'] + " today")
+		elif final:
+			if teamName in game['winning_team']:
+				print("The " + teamName + " already won today against the " + game['losing_team'])
+			else:
+				print("The " + teamName + " already lost today against the " + game['winning_team'])
 		else:
-			print("Game Over! The " + teamName + " lose!")
+			print("The " + teamName + " are off today")
+		printed = True

@@ -1,5 +1,6 @@
 import statsapi as sa
 from playsound import playsound as ps
+import os
 
 class MLBFSM:
     def printProgress(game, teamName):
@@ -24,12 +25,20 @@ class MLBFSM:
         else:
             print("The " + teamName + " already lost today against the " + game['winning_team'])
 
-    def playHomeRun(newScoring, teamID):
+    def getCurrentInning(newScoring):
+        return int(newScoring[-1].split("\n")[1].split(" ")[1])
+
+    def getCurrentInningState(newScoring):
+        return newScoring[-1].split("\n")[1].split(" ")[0]
+
+    def playHomeRun(self, newScoring, teamID, game, printed):
         if ("homers" in newScoring[-1]):
             playerName = newScoring[-1].split(" homers")[0]
-        if (playerName in sa.roster(teamID) and game['current_inning'] == int(newScoring[-1].split("\n")[1].split(" ")[1])):
-            print(newScoring[-1])
-            ps('SEE YA.mp3')
+            if (playerName in sa.roster(teamID) and game['current_inning'] == self.getCurrentInning(newScoring) and game['inning_state'] == self.getCurrentInningState(newScoring) and not printed):
+                print(newScoring[-1])
+                ps('SEE YA.mp3')
+                printed = True
+            return printed
 
     def printBoxScore(game):
         os.system('cls' if os.name == 'nt' else 'clear')
@@ -43,7 +52,7 @@ class MLBFSM:
         else:
             return [nextGameData['home']['teamName'], nextGameDate]
 
-    def stateMachine(self, game, gameState, teamName):
+    def stateMachine(self, game, gameState, inningState, teamName, oldScoring, teamID, printed):
         if gameState is 0:
             if game['status'] == 'In Progress':
                 gameState = 1
@@ -65,47 +74,56 @@ class MLBFSM:
             if inningState is -1:
                 if topBottom == "Top":
                     inningState = 0
-                    printBoxScore(game)
+                    self.printBoxScore(game)
+                    printed = False
                 elif topBottom == "Middle":
                     inningState = 1
-                    printBoxScore(game)
+                    self.printBoxScore(game)
                 elif topBottom == "Bottom":
                     inningState = 2
-                    printBoxScore(game)
+                    self.printBoxScore(game)
+                    printed = False
                 elif topBottom == "End":
                     inningState = 3
-                    printBoxScore(game)
+                    self.printBoxScore(game)
+                    printed = False
             elif inningState is 0:
                 if topBottom == "Middle":
                     inningState = 1
-                    printBoxScore(game)
+                    self.printBoxScore(game)
+                    printed = False
             elif inningState is 1:
                 if topBottom == "Bottom":
                     inningState = 2
-                    printBoxScore(game)
+                    self.printBoxScore(game)
+                    printed = False
             elif inningState is 2:
                 if topBottom == "End":
                     inningState = 3
-                    printBoxScore(game)
+                    self.printBoxScore(game)
+                    printed = False
+            elif inningState is 3:
+                if topBottom == "Top":
+                    inningState = 0
+                    self.printBoxScore(game)
+                    printed = False
             try:
                 newScoring = sa.game_scoring_plays(game['game_id']).split("\n\n")
             except:
                 raise Exception('No Scoring Plays')
-            if len(oldScoring) != len(newScoring):
-                playHomeRun(newScoring, teamID)
-                oldScoring = newScoring
+            printed = self.playHomeRun(self, newScoring, teamID, game, printed)
         elif gameState is 2:
             if game['status'] == 'In Progress':
                 gameState = 1
-                printProgress(game, teamName)
+                self.printProgress(game, teamName)
             elif game['status'] == 'Final':
                 gameState = 3
-                printFinal(game, teamName)
+                self.printFinal(game, teamName)
             elif gameState is 3:
                 if game['status'] == 'In Progress':
                     gameState = 1
-                    printProgress(game, teamName)
+                    self.printProgress(game, teamName)
                 elif game['status'] == 'Scheduled' or game['status'] == 'Pre-Game' or game['status'] == 'Warmup':
                     gameState = 2
-                    printSchedule(game, teamName)
-            return gameState
+                    self.printSchedule(game, teamName)
+        return [gameState, inningState, printed]
